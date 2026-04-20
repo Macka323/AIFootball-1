@@ -24,8 +24,8 @@ def decision(our_team, their_team, ball, your_side, half, time_left, our_score, 
         # python dictionary with the following keys: 'x', 'y', 'alpha', 'mass', 'radius', 'a_max', 'v_max', 'shot_power_max'
         player = our_team[i] # gather information about each one of your players eg. position
         manager_decision[i]['alpha'] = player['alpha'] # player['alpha'] # choose direction for running (0, 2*pi)
-        manager_decision[i]['force'] = 0 # accelerate or deaccelerate your player up to 'v_max' or 0: (-0.5 * 'a_max' * 'mass', 'a_max' * 'mass')
-        manager_decision[i]['shot_request'] = True # choose if you want to shoot
+        manager_decision[i]['force'] = 1*player['a_max'] # accelerate or deaccelerate your player up to 'v_max' or 0: (-0.5 * 'a_max' * 'mass', 'a_max' * 'mass')
+        manager_decision[i]['shot_request'] = False # choose if you want to shoot
         manager_decision[i]['shot_power'] = 100 # use different shot power: (0, 'shot_power_max')
     # print(our_score, their_score)
     # print(our_team[0]['weight'], our_team[0]['radius'], our_team[0]['max_acceleration'], our_team[0]['max_speed'], our_team[0]['shot_power'])
