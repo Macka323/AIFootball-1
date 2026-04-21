@@ -56,30 +56,27 @@ class FootballEnvironment(gym.Env):
         
         # Observation vector
         obs = np.array([
-            # Player state (10 features)
+            # Player state  features)
             player['x'] / 1366.0,  # Normalize by screen width
             player['y'] / 768.0,   # Normalize by screen height
-            player.get('vx', 0) / 100.0,
-            player.get('vy', 0) / 100.0,
             player['alpha'] / (2 * np.pi),
-            player.get('a_max', 100) / 100.0,
-            player.get('v_max', 100) / 100.0,
-            player.get('radius', 20) / 50.0,
-            player.get('weight', 75) / 100.0,
-            player.get('shot_power_max', player.get('shot_power', 50)) / 100.0,
+            player['a_max', 100] / 100.0,
+            player['v_max', 100] / 100.0,
+            player['radius', 20] / 50.0,
+            player['weight', 75] / 100.0,
+            player['shot_power_max'] / 100.0,
             
-            # Ball state (4 features)
+            # Ball state  features)
             ball['x'] / 1366.0,
             ball['y'] / 768.0,
             ball.get('vx', 0) / 50.0,
             ball.get('vy', 0) / 50.0,
             
-            # Game state (5 features)
+            # Game state features)
             distance_to_ball / 1000.0,
             normalized_angle,
             time_left / (45 * 60),  # Normalize by half duration
-            (our_team[0].get('shot_power_max', our_team[0].get('shot_power', 50)) - their_team[0].get('shot_power_max', their_team[0].get('shot_power', 50))) / 100.0,  # Strength comparison
-            len(our_team) - len(their_team),  # Players alive difference
+            
         ], dtype=np.float32)
         
         return obs

@@ -39,36 +39,28 @@ def get_rl_observation(player, ball, other_players, score_diff, time_left):
     distance_to_ball = np.sqrt(dx**2 + dy**2)
     angle_to_ball = np.arctan2(dy, dx)
     
-    # Strength comparison - use shot_power_max or shot_power
-    player_shot = player.get('shot_power_max', player.get('shot_power', 50))
-    other_shot = other_players[0].get('shot_power_max', other_players[0].get('shot_power', 50))
-    strength_diff = (player_shot - other_shot) / 100.0
     
     obs = np.array([
         # Player state (10 features)
         player['x'] / 1366.0,
         player['y'] / 768.0,
-        player.get('vx', 0) / 100.0,
-        player.get('vy', 0) / 100.0,
         player['alpha'] / (2 * np.pi),
-        player.get('a_max', 100) / 100.0,
-        player.get('v_max', 100) / 100.0,
-        player.get('radius', 20) / 50.0,
-        player.get('weight', 75) / 100.0,
-        player_shot / 100.0,
+        player['a_max']  / 100.0,
+        player['v_max']  / 100.0,
+        player['radius'] / 50.0,
+        player['weight'] / 100.0,
+        player['shot_power_max'] / 100.0,
         
         # Ball state (4 features)
         ball['x'] / 1366.0,
         ball['y'] / 768.0,
-        ball.get('vx', 0) / 50.0,
-        ball.get('vy', 0) / 50.0,
+        ball['vx'] / 50.0,
+        ball['vy'] / 50.0,
         
         # Game state (5 features)
         distance_to_ball / 1000.0,
         (angle_to_ball + np.pi) / (2 * np.pi),
         time_left / (45 * 60),
-        strength_diff,
-        0.0,
     ], dtype=np.float32)
     
     return obs
