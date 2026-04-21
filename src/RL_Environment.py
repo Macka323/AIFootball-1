@@ -3,6 +3,11 @@ from gymnasium import spaces
 import numpy as np
 
 
+FIELD_WIDTH = 1366.0
+FIELD_HEIGHT = 768.0
+HALF_DURATION = 45 * 60
+
+
 class FootballEnvironment(gym.Env):
     """
     Custom Gymnasium environment for AI Football game.
@@ -26,24 +31,53 @@ class FootballEnvironment(gym.Env):
         # force: 0 to a_max (normalized to 0-1)
         self.action_space = spaces.Box(low=0, high=1, shape=(2,), dtype=np.float32)
         
-        # Observation space (19 features)
-        # Player: x, y, vx, vy, alpha, a_max, v_max, radius, mass, shot_power
-        # Ball: x, y, vx, vy
-        # Game: score_diff, time_left_ratio, distance_to_ball, angle_to_ball
+        # Observation space (28 features)
         self.observation_space = spaces.Box(
             low=-np.inf, 
             high=np.inf, 
-            shape=(19,), 
+            shape=(28,), 
             dtype=np.float32
         )
         
         self.prev_score_diff = 0
         self.prev_distance_to_ball = 0
         self.step_count = 0
+
+    @staticmethod
+    def _player_mass(player):
+        return player.get('mass', player.get('weight', 75))
+
+    @staticmethod
+    def _ball_velocity(ball):
+        if 'vx' in ball or 'vy' in ball:
+            return ball.get('vx', 0.0), ball.get('vy', 0.0)
+
+        speed = ball.get('v', 0.0)
+        angle = ball.get('alpha', 0.0)
+        return speed * np.cos(angle), speed * np.sin(angle)
+
+    @staticmethod
+    def _side_flag(your_side):
+        if isinstance(your_side, str):
+            return 1.0 if your_side.lower() == 'left' else 0.0
+        return 1.0 if your_side else 0.0
+
+    def observation_from_state(self, state):
+        return self._get_observation(
+            state['our_team'],
+            state['their_team'],
+            state['ball'],
+            state['your_side'],
+            state['half'],
+            state['time_left'],
+            state['our_score'],
+            state['their_score'],
+        )
         
-    def _get_observation(self, our_team, their_team, ball, time_left, total_time):
+    def _get_observation(self, our_team, their_team, ball, your_side, half, time_left, our_score, their_score):
         """Convert game state to observation vector"""
         player = our_team[self.player_index]
+        ball_vx, ball_vy = self._ball_velocity(ball)
         
         # Calculate distance and angle to ball
         dx = ball['x'] - player['x']
@@ -56,27 +90,34 @@ class FootballEnvironment(gym.Env):
         
         # Observation vector
         obs = np.array([
-            # Player state  features)
-            player['x'] / 1366.0,  # Normalize by screen width
-            player['y'] / 768.0,   # Normalize by screen height
+            player['x'] / FIELD_WIDTH,
+            player['y'] / FIELD_HEIGHT,
             player['alpha'] / (2 * np.pi),
-            player['a_max', 100] / 100.0,
-            player['v_max', 100] / 100.0,
-            player['radius', 20] / 50.0,
-            player['weight', 75] / 100.0,
+            player['a_max'] / 100.0,
+            player['v_max'] / 100.0,
+            player['radius'] / 50.0,
+            self._player_mass(player) / 100.0,
             player['shot_power_max'] / 100.0,
-            
-            # Ball state  features)
-            ball['x'] / 1366.0,
-            ball['y'] / 768.0,
-            ball.get('vx', 0) / 50.0,
-            ball.get('vy', 0) / 50.0,
-            
-            # Game state features)
+            their_team[0]['x'] / FIELD_WIDTH,
+            their_team[0]['y'] / FIELD_HEIGHT,
+            their_team[0]['alpha'] / (2 * np.pi),
+            their_team[1]['x'] / FIELD_WIDTH,
+            their_team[1]['y'] / FIELD_HEIGHT,
+            their_team[1]['alpha'] / (2 * np.pi),
+            their_team[2]['x'] / FIELD_WIDTH,
+            their_team[2]['y'] / FIELD_HEIGHT,
+            their_team[2]['alpha'] / (2 * np.pi),
+            ball['x'] / FIELD_WIDTH,
+            ball['y'] / FIELD_HEIGHT,
+            ball_vx / 50.0,
+            ball_vy / 50.0,
             distance_to_ball / 1000.0,
             normalized_angle,
-            time_left / (45 * 60),  # Normalize by half duration
-            
+            time_left / HALF_DURATION,
+            self._side_flag(your_side),
+            half,
+            our_score / 10,
+            their_score / 10,
         ], dtype=np.float32)
         
         return obs
@@ -96,8 +137,11 @@ class FootballEnvironment(gym.Env):
             state['our_team'], 
             state['their_team'], 
             state['ball'],
+            state['your_side'],
+            state['half'],
             state['time_left'],
-            state['total_time']
+            state['our_score'],
+            state['their_score']
         )
         return obs, {}
     
@@ -117,24 +161,24 @@ class FootballEnvironment(gym.Env):
         their_score = state['their_score']
         time_left = state['time_left']
         total_time = state['total_time']
+        your_side = state['your_side']
+        half = state['half']
         
         # Calculate reward
         reward = self._calculate_reward(
-            our_team, their_team, ball, 
-            our_score, their_score,
-            time_left, total_time
+             our_team, their_team, ball, our_score, their_score, time_left, total_time,your_side, half
         )
         
         # Check termination
-        terminated = time_left <= 0 or len(our_team) == 0
+        terminated = time_left <= 0 
         truncated = False
         
         # Get next observation
-        obs = self._get_observation(our_team, their_team, ball, time_left, total_time)
+        obs = self._get_observation(our_team, their_team, ball, your_side, half, time_left, our_score, their_score)
         
         return obs, reward, terminated, truncated, {}
     
-    def _calculate_reward(self, our_team, their_team, ball, our_score, their_score, time_left, total_time):
+    def _calculate_reward(self, our_team, their_team, ball, our_score, their_score, time_left, total_time,your_side, half):
         """Calculate reward based on game progress"""
         reward = 0.0
         
@@ -150,6 +194,12 @@ class FootballEnvironment(gym.Env):
         if score_diff < self.prev_score_diff:
             reward -= 50.0
         self.prev_score_diff = score_diff
+        
+        is_left_side = self._side_flag(your_side) == 1.0
+        if is_left_side and ball['x'] > FIELD_WIDTH / 2:
+            reward += 10.0
+        elif (not is_left_side) and ball['x'] < FIELD_WIDTH / 2:
+            reward -= 10.0
         
         # Time-based rewards/penalties
         if time_left <= 0:  # Game ended
@@ -172,7 +222,7 @@ class FootballEnvironment(gym.Env):
             reward -= 0.2
         
         # Time pressure - reward urgency near end of game
-        time_ratio = time_left / total_time
+        time_ratio = time_left / max(total_time, 1)
         if time_ratio < 0.2:  # Last 20% of game
             if our_score <= their_score:  # Behind or tied
                 reward -= 0.5  # Urgency penalty
@@ -183,8 +233,8 @@ class FootballEnvironment(gym.Env):
         reward += 0.01
         
         # reward for moving
-        speed = np.sqrt(player.get('vx', 0)**2 + player.get('vy', 0)**2)
-        reward += speed * 0.1
+       # speed = np.sqrt(player.get('vx', 0)**2 + player.get('vy', 0)**2)
+      #  reward += speed * 0.1
             
             
        

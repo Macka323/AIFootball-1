@@ -9,6 +9,25 @@ from stable_baselines3 import PPO
 rl_model = None
 rl_ready = False
 
+
+def _player_mass(player):
+    return player.get('mass', player.get('weight', 75))
+
+
+def _ball_velocity(ball):
+    if 'vx' in ball or 'vy' in ball:
+        return ball.get('vx', 0.0), ball.get('vy', 0.0)
+
+    speed = ball.get('v', 0.0)
+    angle = ball.get('alpha', 0.0)
+    return speed * np.cos(angle), speed * np.sin(angle)
+
+
+def _side_flag(your_side):
+    if isinstance(your_side, str):
+        return 1.0 if your_side.lower() == 'left' else 0.0
+    return 1.0 if your_side else 0.0
+
 def load_rl_model():
     """Load trained self-play RL model"""
     global rl_model, rl_ready
@@ -30,45 +49,52 @@ def load_rl_model():
         print(f"⚠ Failed to load RL model: {e}")
         return False
 
-def get_rl_observation(player, ball, other_players, score_diff, time_left):
-    """Convert game state to RL observation vector (19 features)"""
-    
+def get_rl_observation(player, their_team, ball, your_side, half, time_left, our_score, their_score):
+    """Convert game state to the 28-feature RL observation vector."""
+    ball_vx, ball_vy = _ball_velocity(ball)
+
     # Calculate distance and angle to ball
     dx = ball['x'] - player['x']
     dy = ball['y'] - player['y']
     distance_to_ball = np.sqrt(dx**2 + dy**2)
     angle_to_ball = np.arctan2(dy, dx)
     
-    # Strength comparison - use shot_power_max or shot_power
-    player_shot = player.get('shot_power_max', player.get('shot_power', 50))
-    other_shot = other_players[0].get('shot_power_max', other_players[0].get('shot_power', 50))
-    strength_diff = (player_shot - other_shot) / 100.0
     
     obs = np.array([
-        # Player state (10 features)
+        # Player state
         player['x'] / 1366.0,
         player['y'] / 768.0,
-        player.get('vx', 0) / 100.0,
-        player.get('vy', 0) / 100.0,
         player['alpha'] / (2 * np.pi),
-        player.get('a_max', 100) / 100.0,
-        player.get('v_max', 100) / 100.0,
-        player.get('radius', 20) / 50.0,
-        player.get('weight', 75) / 100.0,
-        player_shot / 100.0,
+        player['a_max']  / 100.0,
+        player['v_max']  / 100.0,
+        player['radius'] / 50.0,
+        _player_mass(player) / 100.0,
+        player['shot_power_max'] / 100.0,
         
-        # Ball state (4 features)
+        their_team[0]['x'] / 1366.0,  # Normalize by screen width
+        their_team[0]['y'] / 768.0,   # Normalize by screen height
+        their_team[0]['alpha'] / (2 * np.pi),
+        their_team[1]['x'] / 1366.0,  # Normalize by screen width
+        their_team[1]['y'] / 768.0,   # Normalize by screen height
+        their_team[1]['alpha'] / (2 * np.pi),
+        their_team[2]['x'] / 1366.0,  # Normalize by screen width
+        their_team[2]['y'] / 768.0,   # Normalize by screen height
+        their_team[2]['alpha'] / (2 * np.pi),
+        
+        # Ball state
         ball['x'] / 1366.0,
         ball['y'] / 768.0,
-        ball.get('vx', 0) / 50.0,
-        ball.get('vy', 0) / 50.0,
+        ball_vx / 50.0,
+        ball_vy / 50.0,
         
-        # Game state (5 features)
+        # Game state
         distance_to_ball / 1000.0,
         (angle_to_ball + np.pi) / (2 * np.pi),
         time_left / (45 * 60),
-        strength_diff,
-        0.0,
+        _side_flag(your_side),
+        half,
+        our_score/10,
+        their_score/10
     ], dtype=np.float32)
     
     return obs
@@ -138,7 +164,7 @@ def decision(our_team, their_team, ball, your_side, half, time_left, our_score, 
         if rl_ready:
             # Use RL agent for this player
             try:
-                obs = get_rl_observation(player, ball, their_team, score_diff, time_left)
+                obs = get_rl_observation(our_team[i], their_team, ball, your_side, half, time_left, our_score, their_score)
                 action, _ = rl_model.predict(obs, deterministic=True)
                 manager_decision[i] = action_to_decision(action, player)
             except Exception as e:
