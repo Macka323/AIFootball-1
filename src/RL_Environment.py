@@ -185,6 +185,14 @@ class FootballEnvironment(gym.Env):
         # Small reward for staying alive and active
         reward += 0.01
         
+        # reward for moving
+        speed = np.sqrt(player.get('vx', 0)**2 + player.get('vy', 0)**2)
+        reward += speed * 0.1
+            
+            
+       
+        
+        
         return float(reward)
     
     def set_game_state(self, our_team, their_team, ball, your_side, half, time_left, our_score, their_score):

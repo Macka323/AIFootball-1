@@ -113,7 +113,7 @@ def team_properties():
     player_names = ["Пандевалдо", "Панчевалдо", "Елмасалдо"]
     properties['team_name'] = "Мак Челзи"
     properties['player_names'] = player_names
-    properties['image_name'] = 'Red.png'
+    properties['image_name'] = 'Blue.png'
     properties['weight_points'] = (9, 10, 15)
     properties['radius_points'] = (5, 10, 20)
     properties['max_acceleration_points'] = (40, 10, 15)

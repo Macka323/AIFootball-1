@@ -362,6 +362,6 @@ if __name__ == "__main__":
         print("\n" + "=" * 60)
         print("Self-play training completed!")
         print("Creating self-play managers...")
-        create_self_play_manager()
+        #create_self_play_manager()
         print("Both teams now use the same RL model!")
         print("=" * 60)
