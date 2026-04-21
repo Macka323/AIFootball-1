@@ -62,11 +62,11 @@ class FootballEnvironment(gym.Env):
             player.get('vx', 0) / 100.0,
             player.get('vy', 0) / 100.0,
             player['alpha'] / (2 * np.pi),
-            player['a_max'] / 100.0,
-            player['v_max'] / 100.0,
-            player['radius'] / 50.0,
-            player['weight'] / 100.0,
-            player['shot_power'] / 100.0,
+            player.get('a_max', 100) / 100.0,
+            player.get('v_max', 100) / 100.0,
+            player.get('radius', 20) / 50.0,
+            player.get('weight', 75) / 100.0,
+            player.get('shot_power_max', player.get('shot_power', 50)) / 100.0,
             
             # Ball state (4 features)
             ball['x'] / 1366.0,
@@ -78,7 +78,7 @@ class FootballEnvironment(gym.Env):
             distance_to_ball / 1000.0,
             normalized_angle,
             time_left / (45 * 60),  # Normalize by half duration
-            (our_team[0]['shot_power'] - their_team[0]['shot_power']) / 100.0,  # Strength comparison
+            (our_team[0].get('shot_power_max', our_team[0].get('shot_power', 50)) - their_team[0].get('shot_power_max', their_team[0].get('shot_power', 50))) / 100.0,  # Strength comparison
             len(our_team) - len(their_team),  # Players alive difference
         ], dtype=np.float32)
         

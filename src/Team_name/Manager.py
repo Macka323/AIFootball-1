@@ -1,29 +1,29 @@
+
 import numpy as np
 import os
 from stable_baselines3 import PPO
 
 # ============================================================================
-# REINFORCEMENT LEARNING CONFIGURATION
+# SELF-PLAY RL CONFIGURATION
 # ============================================================================
 rl_model = None
-use_rl_for_player = [True, False, False]  # Use RL for player 0 only
 rl_ready = False
 
 def load_rl_model():
-    """Load trained RL model"""
+    """Load trained self-play RL model"""
     global rl_model, rl_ready
     
-    model_path = os.path.join(os.path.dirname(__file__), '../../models/rl_football_agent')
+    model_path = os.path.join(os.path.dirname(__file__), '../../models/selfplay_rl_football_agent')
     
     try:
         if os.path.exists(model_path + '.zip'):
             rl_model = PPO.load(model_path)
             rl_ready = True
-            print("✓ RL Model loaded successfully!")
+            print("✓ Self-play RL Model loaded successfully!")
             return True
         else:
             rl_ready = False
-            print("⚠ RL model not found. Training script not run yet.")
+            print("⚠ Self-play RL model not found. Train it first with: python train_selfplay_rl_agent.py")
             return False
     except Exception as e:
         rl_ready = False
@@ -75,9 +75,6 @@ def get_rl_observation(player, ball, other_players, score_diff, time_left):
 
 def action_to_decision(action, player):
     """Convert RL action (normalized 0-1) to decision dict"""
-    # action[0]: alpha (direction) - 0 to 1 maps to 0 to 2*pi
-    # action[1]: force - 0 to 1 maps to 0 to a_max
-    
     try:
         # Ensure action is numpy array and handle NaN/inf
         action = np.array(action, dtype=np.float32)
@@ -111,16 +108,12 @@ def action_to_decision(action, player):
         }
 
 # Choose names for your players and team
-    # Choose a funny name for each player and your team
-    # Use names written only in cyrillic
-    # Make sure that the name is less than 11 characters
-    # Don't use profanity!!!
 def team_properties():
     properties = dict()
     player_names = ["Пандевалдо", "Панчевалдо", "Елмасалдо"]
     properties['team_name'] = "Мак Челзи"
     properties['player_names'] = player_names
-    properties['image_name'] = 'Red.png' # use image resolution 153x153
+    properties['image_name'] = 'Red.png'
     properties['weight_points'] = (9, 10, 15)
     properties['radius_points'] = (5, 10, 20)
     properties['max_acceleration_points'] = (40, 10, 15)
@@ -142,7 +135,7 @@ def decision(our_team, their_team, ball, your_side, half, time_left, our_score, 
     for i in range(3):
         player = our_team[i]
         
-        if use_rl_for_player[i] and rl_ready:
+        if rl_ready:
             # Use RL agent for this player
             try:
                 obs = get_rl_observation(player, ball, their_team, score_diff, time_left)
@@ -156,15 +149,10 @@ def decision(our_team, their_team, ball, your_side, half, time_left, our_score, 
                 manager_decision[i]['shot_request'] = False
                 manager_decision[i]['shot_power'] = 50
         else:
-            # Simple baseline strategy for other players
+            # Simple baseline strategy
             manager_decision[i]['alpha'] = player['alpha']
             manager_decision[i]['force'] = 0.7 * player['a_max']
             manager_decision[i]['shot_request'] = False
             manager_decision[i]['shot_power'] = 50
-    
-    return manager_decision
-    # print(our_score, their_score)
-    # print(our_team[0]['weight'], our_team[0]['radius'], our_team[0]['max_acceleration'], our_team[0]['max_speed'], our_team[0]['shot_power'])
-    # print(their_team[0]['weight'], their_team[0]['radius'], their_team[0]['max_acceleration'], their_team[0]['max_speed'], their_team[0]['shot_power'])
     
     return manager_decision
