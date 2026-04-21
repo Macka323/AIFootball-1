@@ -1,3 +1,41 @@
+from stable_baselines3 import PPO
+import numpy as np
+
+# Initialize RL agent
+model = PPO("MlpPolicy", env=custom_env)  # Define custom env
+trained = False
+
+def get_state(our_team, their_team, ball, our_score, their_score, time_left):
+    """Convert game info into state vector for RL"""
+    player = our_team[0]  # Focus on player 0
+    state = {
+        'player_x': player['x'],
+        'player_y': player['y'],
+        'player_v': player['v'],
+        'ball_x': ball['x'],
+        'ball_y': ball['y'],
+        'ball_vx': ball['vx'],
+        'ball_vy': ball['vy'],
+        'distance_to_ball': ((player['x']-ball['x'])**2 + (player['y']-ball['y'])**2)**0.5,
+        'score_diff': our_score - their_score,
+        'time_left': time_left
+    }
+    return state
+
+def calculate_reward(our_score_prev, their_score_prev, our_score, their_score, 
+                     distance_to_ball_prev, distance_to_ball):
+    reward = 0
+    if our_score > our_score_prev:
+        reward += 100  # Goal scored
+    if their_score > their_score_prev:
+        reward -= 50   # Goal conceded
+    
+    # Small reward for moving toward ball
+    if distance_to_ball < distance_to_ball_prev:
+        reward += 0.1
+    
+    return reward
+
 # Choose names for your players and team
     # Choose a funny name for each player and your team
     # Use names written only in cyrillic
@@ -18,6 +56,9 @@ def team_properties():
 
 # This function gathers game information and controls each one of your three players
 def decision(our_team, their_team, ball, your_side, half, time_left, our_score, their_score):
+    
+  
+    
     manager_decision = [dict(), dict(), dict()]
     for i in range(3):
         
