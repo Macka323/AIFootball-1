@@ -154,6 +154,15 @@ class FootballEnvironment(gym.Env):
             reward -= 50.0
         self.prev_score_diff = score_diff
         
+        # Time-based rewards/penalties
+        if time_left <= 0:  # Game ended
+            if our_score > their_score:
+                reward += 50.0  # Won the game
+            elif our_score < their_score:
+                reward -= 50.0  # Lost the game
+            else:
+                reward -= 10.0  # Draw (could be better)
+        
         # Small reward for moving toward ball
         if distance_to_ball < self.prev_distance_to_ball:
             reward += 0.5
@@ -164,6 +173,14 @@ class FootballEnvironment(gym.Env):
         # Penalty for being far from ball
         if distance_to_ball > 300:
             reward -= 0.2
+        
+        # Time pressure - reward urgency near end of game
+        time_ratio = time_left / total_time
+        if time_ratio < 0.2:  # Last 20% of game
+            if our_score <= their_score:  # Behind or tied
+                reward -= 0.5  # Urgency penalty
+            else:  # Winning
+                reward += 0.2  # Maintain lead bonus
         
         # Small reward for staying alive and active
         reward += 0.01

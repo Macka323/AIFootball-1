@@ -71,18 +71,26 @@ def train_agent(total_timesteps=100000, learning_rate=3e-4, n_steps=2048):
     
     env = FootballEnvironment(get_state, player_index=0)
     
-    # Create agent
+    # Create agent with HIGH RESOURCE USAGE for FASTER TRAINING
     model = PPO(
         'MlpPolicy',
         env,
         learning_rate=learning_rate,
-        n_steps=n_steps,
-        batch_size=64,
-        n_epochs=10,
+        n_steps=n_steps,           # Large batch size
+        batch_size=512,            # Larger batch processing
+        n_epochs=20,               # More optimization passes per update
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
+        ent_coef=0.01,             # Entropy bonus for exploration
+        vf_coef=0.5,               # Value function coefficient
+        max_grad_norm=0.5,         # Gradient clipping
+        use_sde=False,             # Disable state-dependent exploration for speed
+        sde_sample_freq=-1,
+        target_kl=None,            # No KL divergence limit for faster learning
         verbose=1,
+        tensorboard_log=None,      # Disable logging for speed
+        device='auto',             # Use GPU if available
     )
     
     # Callback to save checkpoints
@@ -124,11 +132,19 @@ def load_trained_agent(model_path="./models/rl_football_agent"):
 
 
 if __name__ == "__main__":
-    # Train the agent
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Train RL agent for AI Football')
+    parser.add_argument('--timesteps', type=int, default=100000, help='Total training timesteps')
+    parser.add_argument('--learning_rate', type=float, default=3e-4, help='Learning rate')
+    parser.add_argument('--n_steps', type=int, default=2048, help='Steps per update')
+    
+    args = parser.parse_args()
+    
     model = train_agent(
-        total_timesteps=100000,  # Adjust based on your needs
-        learning_rate=3e-4,
-        n_steps=2048
+        total_timesteps=args.timesteps,
+        learning_rate=args.learning_rate,
+        n_steps=args.n_steps
     )
     
     if model:
